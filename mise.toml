@@ -1,0 +1,11 @@
+[settings]
+minimum_release_age = "14d"
+
+[tools]
+helm = "4"
+kubectl = "1.37"
+flux2 = "2"
+sops = "3"
+# Not in the mise registry; the GitHub backend verifies the release checksum
+# and records it in mise.lock.
+"github:home-operations/flate" = "0.6"
