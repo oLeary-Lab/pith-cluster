@@ -1,5 +1,6 @@
 [settings]
 minimum_release_age = "14d"
+locked = true
 
 [tools]
 helm = "4"
