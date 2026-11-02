@@ -10,7 +10,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: traefik
-      version: 41.4.0
+      version: 41.7.1
   interval: 12h
   install:
     crds: Create
@@ -18,20 +18,10 @@ spec:
     crds: CreateReplace
   driftDetection:
     mode: enabled
-    ignore:
-      # ServiceLB/provider writes back
-      - paths: ["/spec/loadBalancerIP"]
-        target:
-          kind: Service
-          name: traefik
-      # Webhooks may add annotations
-      - paths: ["/metadata/annotations"]
-        target:
-          kind: Service
-          name: traefik
   values:
     service:
-      type: LoadBalancer
+      spec:
+        type: ClusterIP
     ingressClass:
       enabled: true
       name: traefik
@@ -39,3 +29,26 @@ spec:
     providers:
       kubernetesIngress:
         enabled: true
+    ports:
+      web:
+        # Trust X-Forwarded-* only from cluster pods (cloudflared), so access
+        # logs and metrics record the client IP rather than the pod IP.
+        forwardedHeaders:
+          trustedIPs:
+            - 10.42.0.0/16
+    # The only way to see routing decisions until a log pipeline exists.
+    accessLog:
+      enabled: true
+    metrics:
+      prometheus:
+        # infra and monitoring reconcile independently, so the chart must not
+        # abort rendering when the ServiceMonitor CRD is not yet discoverable.
+        disableAPICheck: true
+        serviceMonitor:
+          enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
