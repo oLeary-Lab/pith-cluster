@@ -18,15 +18,16 @@ data:
     no-autoupdate: true
 
     # Each published hostname forwards to the ingress controller, which routes by
-    # Host to the right Service. Adding an app means adding an Ingress and a
-    # hostname here. To avoid editing this file per app, delete the hostname
-    # rules below and leave a single catch-all that also points at Traefik.
+    # Host to the right Service. This list is the publish allowlist and the
+    # review artifact for what is reachable from the internet, so it stays
+    # explicit: adding an app means adding an Ingress and a hostname here.
     ingress:
     - hostname: linkding.olearylab.com
       service: http://traefik.traefik.svc.cluster.local:80
 
-    - hostname: grafana.olearylab.com
-      service: http://traefik.traefik.svc.cluster.local:80
+    # grafana.olearylab.com is intentionally NOT published yet: it has an Ingress
+    # (monitoring/staging/configs) but no identity gate. Add it here only once a
+    # Cloudflare Access policy for the hostname exists (see ADR-0001).
 
     # This rule matches any traffic which didn't match a previous rule, and responds with HTTP 404.
     - service: http_status:404
