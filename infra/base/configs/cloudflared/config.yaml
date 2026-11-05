@@ -1,0 +1,27 @@
+tunnel: pith-cluster
+
+credentials-file: /etc/cloudflared/creds/credentials.json
+
+# Serves the metrics server under /metrics and the readiness server under /ready
+metrics: 0.0.0.0:2000
+
+# Autoupdates applied in a k8s pod will be lost when the pod is removed or restarted, so
+# autoupdate doesn't make sense in Kubernetes. However, outside of Kubernetes, we strongly
+# recommend using autoupdate.
+no-autoupdate: true
+
+# Each published hostname forwards to the ingress controller, which routes by
+# Host to the right Service. This list is the publish allowlist and the
+# review artifact for what is reachable from the internet, so it stays
+# explicit: adding an app means adding an Ingress and a hostname here.
+ingress:
+- hostname: linkding.olearylab.com
+  service: http://traefik.traefik.svc.cluster.local:80
+
+# Published only behind Cloudflare Access (ADR-0001): the Ingress without an
+# Access policy would put Grafana on the open internet.
+- hostname: grafana.olearylab.com
+  service: http://traefik.traefik.svc.cluster.local:80
+
+# This rule matches any traffic which didn't match a previous rule, and responds with HTTP 404.
+- service: http_status:404
