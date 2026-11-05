@@ -49,8 +49,8 @@ cannot carry a TLS Secret.
    pod spoof `X-Forwarded-For` into the access log. Expected on a homelab;
    recorded so "private apps get Access" is not mistaken for an authorization
    boundary.
-6. Grafana has an Ingress but is not on the tunnel's publish allowlist, so it is
-   not reachable from the internet until an Access policy for it exists.
+6. Grafana is published on the tunnel allowlist only behind a Cloudflare Access
+   policy; the Ingress without that policy would expose it directly.
 7. Cutover: for a short window the new connector forwards to Traefik before the
    linkding Ingress reconciles, so `linkding.olearylab.com` can return
    intermittent 404s.

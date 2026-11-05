@@ -25,9 +25,10 @@ data:
     - hostname: linkding.olearylab.com
       service: http://traefik.traefik.svc.cluster.local:80
 
-    # grafana.olearylab.com is intentionally NOT published yet: it has an Ingress
-    # (monitoring/staging/configs) but no identity gate. Add it here only once a
-    # Cloudflare Access policy for the hostname exists (see ADR-0001).
+    # Published only behind Cloudflare Access (ADR-0001): the Ingress without an
+    # Access policy would put Grafana on the open internet.
+    - hostname: grafana.olearylab.com
+      service: http://traefik.traefik.svc.cluster.local:80
 
     # This rule matches any traffic which didn't match a previous rule, and responds with HTTP 404.
     - service: http_status:404
