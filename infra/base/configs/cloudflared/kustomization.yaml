@@ -4,9 +4,6 @@ resources:
   - namespace.yaml
   - deployment.yaml
 configMapGenerator:
-  # configMapGenerator appends a content hash to the name (cloudflared-<hash>)
-  # and rewrites the Deployment's reference to it, so editing the config rolls
-  # the pods. A plain ConfigMap edit would not (cloudflared reads the file once).
   - name: cloudflared
     files:
       - config.yaml
