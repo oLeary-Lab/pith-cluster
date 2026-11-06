@@ -1,3 +1,8 @@
+# `tunnel` accepts a name or a UUID. With `credentials-file` set (below),
+# cloudflared takes the tunnel identity from that file, so a name here is just a
+# label and falls back to it. A UUID here overrides the credential file and must
+# match it exactly, so a name is the safer choice. Renaming the tunnel in
+# Cloudflare does not change its UUID, so these credentials stay valid.
 tunnel: pith-cluster
 
 credentials-file: /etc/cloudflared/creds/credentials.json

@@ -6,7 +6,7 @@ Date: 2026-11-04
 ## Context
 
 The cluster has no public ingress address: Traefik runs with a `ClusterIP`
-Service and the only way in is the `linkding-pith` Cloudflare Tunnel. The
+Service and the only way in is the `pith-cluster` Cloudflare Tunnel. The
 cluster is a learning homelab that will grow to several apps plus a self-hosted
 public website. "Ingress" was being conflated across three layers, and a
 Grafana Ingress was being wired through the HelmRelease's `valuesFrom`, which
