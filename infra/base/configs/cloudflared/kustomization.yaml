@@ -3,4 +3,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - deployment.yaml
-  - configmap.yaml
+configMapGenerator:
+  - name: cloudflared
+    files:
+      - config.yaml
