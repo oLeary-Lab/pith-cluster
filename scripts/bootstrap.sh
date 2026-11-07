@@ -11,7 +11,7 @@ BRANCH="${BRANCH:-main}"
 SYNC_PATH="${SYNC_PATH:-./clusters/staging}"
 # Pin to the toolkit the cluster runs, so a path fix doesn't also upgrade
 # controllers. Unset deliberately to take the CLI's own version.
-FLUX_VERSION="${FLUX_VERSION:-v2.8.7}"
+FLUX_VERSION="${FLUX_VERSION:-v2.10.0}"
 
 : "${GITHUB_TOKEN:?set GITHUB_TOKEN to a token with admin on ${OWNER}/${REPOSITORY}}"
 
