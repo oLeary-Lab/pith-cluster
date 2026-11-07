@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: linkding
-          image: sissbruecker/linkding@sha256:0f75a89fceff820960cec7a1e5fe46519530e356b0de6b21ca38e8881b9f72e3 # 1.45.0-plus-alpine
+          image: sissbruecker/linkding:1.45.0-plus-alpine@sha256:0f75a89fceff820960cec7a1e5fe46519530e356b0de6b21ca38e8881b9f72e3
 
           ports:
             - containerPort: 9090

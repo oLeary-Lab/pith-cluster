@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: renovate
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: renovate.rules
+      rules:
+        - alert: RenovateStale
+          expr: time() - kube_cronjob_status_last_successful_time{cronjob="renovate", namespace="renovate"} > 172800
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Renovate dependency scan has stopped
+            description: >-
+              CronJob renovate/renovate has not completed successfully in over
+              2 days, so dependency updates are no longer being scanned.
+        - alert: RenovateJobFailed
+          expr: kube_job_status_failed{namespace="renovate"} > 0
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Renovate job reported failures
+            description: >-
+              A Renovate CronJob run in namespace renovate has failed pods.
