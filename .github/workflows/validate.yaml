@@ -1,0 +1,69 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# The workflow only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  manifests:
+    runs-on: ubuntu-latest
+    env:
+      # kubectl matches the cluster's server version (v1.35.x); kubeconform
+      # v0.8.0 (2026-06-04) is the newest release clearing the repo's 14-day
+      # release-age floor.
+      KUBECTL_VERSION: v1.35.4
+      KUBECONFORM_VERSION: v0.8.0
+      # Schema set matching the cluster's minor, so validation does not drift
+      # with kubeconform's default (master).
+      KUBERNETES_VERSION: "1.35.0"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install kubectl
+        run: |
+          set -euo pipefail
+          base="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64"
+          curl -fsSLo /tmp/kubectl "${base}/kubectl"
+          curl -fsSLo /tmp/kubectl.sha256 "${base}/kubectl.sha256"
+          echo "$(cat /tmp/kubectl.sha256)  /tmp/kubectl" | sha256sum -c -
+          install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          base="https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}"
+          curl -fsSLo /tmp/kubeconform-linux-amd64.tar.gz "${base}/kubeconform-linux-amd64.tar.gz"
+          curl -fsSLo /tmp/CHECKSUMS "${base}/CHECKSUMS"
+          (cd /tmp && grep 'kubeconform-linux-amd64.tar.gz' CHECKSUMS | sha256sum -c -)
+          tar -xzf /tmp/kubeconform-linux-amd64.tar.gz -C /tmp kubeconform
+          install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+      # Every path a Flux Kustomization reconciles, so a broken PR fails here
+      # rather than at reconciliation. `apps/staging` has no kustomization.yaml
+      # (kustomize-controller generates one), so the overlay beneath it is built.
+      - name: Render and validate manifests
+        run: |
+          set -euo pipefail
+          roots=(
+            clusters/staging/flux-system
+            apps/staging/linkding
+            infra/staging/controllers
+            infra/staging/configs
+            monitoring/staging/controllers
+            monitoring/staging/configs
+          )
+          for root in "${roots[@]}"; do
+            out="/tmp/$(echo "${root}" | tr '/' '_').yaml"
+            echo "::group::${root}"
+            kubectl kustomize "${root}" > "${out}"
+            # CRDs (HelmRelease, Kustomization, PrometheusRule, …) have no
+            # published schema, so unknown kinds are skipped. SOPS-encrypted
+            # Secrets carry a top-level `sops` block that Flux strips on
+            # decryption; kustomize in CI cannot decrypt, so strict validation
+            # would reject them — skip the kind.
+            kubeconform -strict -summary -ignore-missing-schemas -skip Secret -kubernetes-version "${KUBERNETES_VERSION}" "${out}"
+            echo "::endgroup::"
+          done

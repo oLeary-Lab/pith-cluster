@@ -66,9 +66,14 @@ Facts that shape the response:
    do not depend on chart-specific labels. Egress rules are coarse: vanilla
    `NetworkPolicy` matches IP/port/namespace/pod, not DNS names, and there is no
    Cilium, so "allow `github.com`" is not expressible.
-4. PRs are gated by CI: `kubectl kustomize` over the three roots, `kubeconform`
-   schema validation, and `kubectl apply --dry-run=server` to surface PSA `warn`
-   output. Actions are pinned by full commit SHA.
+4. PRs are gated by CI: `kubectl kustomize` renders every path a Flux
+   Kustomization reconciles, and `kubeconform` validates the rendered objects
+   against published schemas (`-ignore-missing-schemas`, since the CRDs have no
+   public schema). `kubectl apply --dry-run=server` is not used: it needs a live
+   API server, which a hosted runner does not have, so PSA violations surface at
+   admission (Consequence 2), not at PR time. The one action used is pinned by
+   full commit SHA, and both pinned binaries are verified against their
+   published checksums before use.
 5. No admission controller (Kyverno/Gatekeeper) is added now. `pinDigests` +
    PR review + PSA `restricted` + the CI gate cover the gaps the review found;
    an admission webhook is itself a privileged, token-bearing component sitting
