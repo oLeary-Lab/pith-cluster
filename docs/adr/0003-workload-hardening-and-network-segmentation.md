@@ -5,11 +5,11 @@ Date: 2026-11-08
 
 ## Context
 
-A posture assessment of `main` (`tmp/security-posture-main.md`, 2026-11-08) found
-the cluster has no `NetworkPolicy` outside Flux's own manifests, that the
-credential-bearing and internet-exposed workloads are unhardened, that no app
-namespace enforces Pod Security Admission (PSA), and that the delivery path has
-no validation gate. It ranked network segmentation first.
+A posture assessment of `main` (2026-11-08) found the cluster has no
+`NetworkPolicy` outside Flux's own manifests, that the credential-bearing and
+internet-exposed workloads are unhardened, that no app namespace enforces Pod
+Security Admission (PSA), and that the delivery path has no validation gate. It
+ranked network segmentation first.
 
 Facts that shape the response:
 
@@ -86,11 +86,12 @@ Facts that shape the response:
 
 ## Consequences
 
-1. Finding 1 is addressed for the workloads that carry a credential or face the
-   internet (`cloudflared`, `linkding`, `renovate`); `traefik` and `monitoring`
-   remain unsegmented (Deferred #4). Findings 2 and 3 are addressed, and finding
-   4 gains its validation gate. ADR-0001 Deferred #4 (cloudflared unhardened)
-   closes; Deferred #2 and #3 are partly addressed.
+1. Network segmentation now covers the workloads that carry a credential or
+   face the internet (`cloudflared`, `linkding`, `renovate`); `traefik` and
+   `monitoring` remain unsegmented (Deferred #4). Workload hardening and PSA
+   enforcement are addressed, and the delivery path gains its validation gate.
+   ADR-0001 Deferred #4 (cloudflared unhardened) closes; Deferred #2 and #3 are
+   partly addressed.
 2. Once `enforce: restricted` lands, a violating manifest is rejected at
    admission, so the workloads' hygiene becomes a contract rather than a
    convention.

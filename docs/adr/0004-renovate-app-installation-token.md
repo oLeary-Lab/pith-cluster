@@ -8,10 +8,10 @@ Date: 2026-11-08
 ADR-0002 §7 stored a fine-grained GitHub PAT, scoped to only
 `oLeary-Lab/pith-cluster` with `Contents`, `Issues`, `Pull requests` and
 `Commit statuses` write, SOPS-encrypted as the Secret `renovate-dotenv` and
-mounted into the in-cluster Renovate CronJob. The posture assessment
-(`tmp/security-posture-main.md`, finding 6) and ADR-0002's own Deferred #1 and
-#3 flagged that this is a durable repo-write credential whose only protection is
-a fixed expiry with no leading renewal signal.
+mounted into the in-cluster Renovate CronJob. The posture assessment of `main`
+(2026-11-08) and ADR-0002's own Deferred #1 and #3 flagged that this is a
+durable repo-write credential whose only protection is a fixed expiry with no
+leading renewal signal.
 
 The cluster reconciles `main` with `prune: true` through Flux, so a repo-write
 credential held by a pod is one hop from cluster change; the review lists it
@@ -67,6 +67,10 @@ transfers, even though the GitHub App itself does not.
 5. On Forgejo migration the App is rebuilt as a Forgejo app/token flow. The
    mint-at-start shape is preserved, so the cost is a new issuer, not a
    redesign.
+6. Cutover requires revoking the replaced PAT in GitHub. Removing
+   `renovate-dotenv` deletes the ciphertext from `main`, but the token stays
+   live (and in history) until it is revoked or expires, so a working
+   repo-write credential would remain in scope until then.
 
 ## Rejected
 
