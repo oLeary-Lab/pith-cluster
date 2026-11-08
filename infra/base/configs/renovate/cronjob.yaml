@@ -26,6 +26,39 @@ spec:
             fsGroup: 12021
             seccompProfile:
               type: RuntimeDefault
+          initContainers:
+            - name: mint-token
+              image: renovate/renovate:44.181.4@sha256:e2440463a0fff07e43875643324f8b57f6c3a9a8365332b7183989514f81e9ee
+              command:
+                - node
+                - /scripts/mint-token.mjs
+              env:
+                - name: GITHUB_APP_KEY_PATH
+                  value: /etc/renovate/app/private-key.pem
+              envFrom:
+                - configMapRef:
+                    name: renovate-configmap
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+                - name: app-key
+                  mountPath: /etc/renovate/app
+                  readOnly: true
+                - name: app-token
+                  mountPath: /run/renovate
           containers:
             - name: renovate
               image: renovate/renovate:44.181.4@sha256:e2440463a0fff07e43875643324f8b57f6c3a9a8365332b7183989514f81e9ee
@@ -34,8 +67,11 @@ spec:
               envFrom:
                 - configMapRef:
                     name: renovate-configmap
-                - secretRef:
-                    name: renovate-dotenv
+              env:
+                # Renovate reads its installation token from the config file the
+                # init container writes.
+                - name: RENOVATE_CONFIG_FILE
+                  value: /run/renovate/config.json
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
@@ -51,7 +87,18 @@ spec:
               volumeMounts:
                 - name: cache
                   mountPath: /tmp/renovate
+                - name: app-token
+                  mountPath: /run/renovate
           volumes:
             - name: cache
               emptyDir:
                 sizeLimit: 256Mi
+            - name: app-token
+              emptyDir:
+                sizeLimit: 8Mi
+            - name: script
+              configMap:
+                name: renovate-token-script
+            - name: app-key
+              secret:
+                secretName: renovate-app-key

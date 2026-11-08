@@ -3,4 +3,4 @@ kind: Kustomization
 namespace: renovate
 resources:
   - ../../../base/configs/renovate/
-  - renovate-dotenv.yaml
+  - renovate-app-key.yaml

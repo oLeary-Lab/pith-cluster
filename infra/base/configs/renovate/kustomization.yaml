@@ -4,3 +4,4 @@ resources:
   - configmap.yaml
   - namespace.yaml
   - cronjob.yaml
+  - token-configmap.yaml

@@ -33,7 +33,9 @@ transfers, even though the GitHub App itself does not.
 2. The CronJob gains an **init container** that mints the token: it signs an
    RS256 JWT with the App's private key, exchanges it at the GitHub App API for
    an installation access token, and writes the token to an in-memory
-   `emptyDir`. The Renovate container reads the token from that file at startup.
+   `emptyDir` as a Renovate config file (`{"token": …}`). The Renovate
+   container reads it via `RENOVATE_CONFIG_FILE`. The private key is mounted into
+   the init container only.
 3. The **App private key** is the only stored credential. It stays
    SOPS-encrypted in `infra/staging/configs/renovate/` (the tier that already
    decrypts), is mounted read-only, and the pod remains `restricted`-hardened.
@@ -42,9 +44,10 @@ transfers, even though the GitHub App itself does not.
 4. The App ID and installation ID are non-secret and live in the ConfigMap with
    the existing `RENOVATE_*` settings. The private key and any minted token are
    never written to a ConfigMap or the working tree.
-5. `renovate-dotenv` no longer carries `RENOVATE_TOKEN`; it holds only the App
-   private key. The init-container and Renovate images are pinned by
-   `tag@sha256`, under the same age floor.
+5. `renovate-dotenv` is removed — its only content was the PAT. The App
+   private key lives in its own Secret, `renovate-app-key`, mounted read-only
+   into the init container only. The init-container and Renovate images are
+   pinned by `tag@sha256`, under the same age floor.
 
 ## Consequences
 
