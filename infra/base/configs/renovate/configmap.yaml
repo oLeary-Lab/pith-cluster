@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: renovate-configmap
+data:
+  RENOVATE_AUTODISCOVER: "false"
+  RENOVATE_GIT_AUTHOR: "Renovate Bot <renovate@olearylab.com>"
+  RENOVATE_PLATFORM: "github"

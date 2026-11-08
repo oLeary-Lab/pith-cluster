@@ -1,0 +1,48 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: renovate
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: renovate.rules
+      rules:
+        - alert: RenovateStale
+          expr: time() - kube_cronjob_status_last_successful_time{cronjob="renovate", namespace="renovate"} > 172800
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Renovate dependency scan has stopped
+            description: >-
+              CronJob renovate/renovate has not completed successfully in over
+              2 days, so dependency updates are no longer being scanned.
+        - alert: RenovateNeverRan
+          # kube_cronjob_status_last_successful_time does not exist until the
+          # first success, so RenovateStale can never fire on a fresh cluster.
+          # This companion covers that case after a 48h grace window. Labels are
+          # set statically because absent() emits a series with no labels.
+          expr: absent(kube_cronjob_status_last_successful_time{cronjob="renovate", namespace="renovate"})
+          for: 48h
+          labels:
+            severity: warning
+            namespace: renovate
+            cronjob: renovate
+          annotations:
+            summary: Renovate has never completed a run
+            description: >-
+              CronJob renovate/renovate has no successful run recorded after 48
+              hours. It may be suspended or unable to schedule.
+        - alert: RenovateJobFailed
+          # Condition-based: kube_job_status_failed is cumulative and stays >0
+          # after a run that failed a pod and then recovered on retry.
+          expr: kube_job_failed{namespace="renovate", condition="true"} == 1
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Renovate job failed
+            description: >-
+              A Renovate job in namespace renovate has entered the Failed
+              condition.

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "minimumReleaseAge": "14d",
+  "osvVulnerabilityAlerts": true,
+  "pinDigests": true,
+  "kubernetes": {
+    "managerFilePatterns": ["/\\.ya?ml$/"]
+  },
+  "flux": {
+    "managerFilePatterns": ["/\\.ya?ml$/"]
+  },
+  "mise": {
+    "enabled": false
+  },
+  "ignorePaths": ["**/gotk-components.yaml"],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["pinDigest"],
+      "minimumReleaseAge": null
+    }
+  ]
+}
