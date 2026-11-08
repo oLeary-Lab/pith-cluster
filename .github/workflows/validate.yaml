@@ -14,13 +14,14 @@ jobs:
   manifests:
     runs-on: ubuntu-latest
     env:
-      # kubectl matches the cluster's server version (v1.35.x); kubeconform
-      # v0.8.0 (2026-06-04) is the newest release clearing the repo's 14-day
-      # release-age floor.
+      # kubectl and the schema version track the cluster's server version, not
+      # the newest release, so they move with a cluster upgrade rather than on
+      # a Renovate PR. kubeconform is a standalone tool, pinned under the
+      # repo's 14-day release-age floor.
       KUBECTL_VERSION: v1.35.4
       KUBECONFORM_VERSION: v0.8.0
-      # Schema set matching the cluster's minor, so validation does not drift
-      # with kubeconform's default (master).
+      # Matching the cluster's minor keeps validation from drifting with
+      # kubeconform's default (master).
       KUBERNETES_VERSION: "1.35.0"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
