@@ -3,7 +3,9 @@ kind: CronJob
 metadata:
   name: renovate
 spec:
+  # Runs daily at 00:00 UTC (explicit so the intent survives a cluster TZ change).
   schedule: "@daily"
+  timeZone: "Etc/UTC"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 300
   successfulJobsHistoryLimit: 1
@@ -15,6 +17,7 @@ spec:
       ttlSecondsAfterFinished: 86400
       template:
         spec:
+          automountServiceAccountToken: false
           restartPolicy: Never
           securityContext:
             runAsNonRoot: true
@@ -50,4 +53,5 @@ spec:
                   mountPath: /tmp/renovate
           volumes:
             - name: cache
-              emptyDir: {}
+              emptyDir:
+                sizeLimit: 256Mi

@@ -18,6 +18,19 @@ spec:
             description: >-
               CronJob renovate/renovate has not completed successfully in over
               2 days, so dependency updates are no longer being scanned.
+        - alert: RenovateNeverRan
+          # kube_cronjob_status_last_successful_time does not exist until the
+          # first success, so RenovateStale can never fire on a fresh cluster.
+          # This companion covers that case after a 48h grace window.
+          expr: absent(kube_cronjob_status_last_successful_time{cronjob="renovate", namespace="renovate"})
+          for: 48h
+          labels:
+            severity: warning
+          annotations:
+            summary: Renovate has never completed a run
+            description: >-
+              CronJob renovate/renovate has no successful run recorded after 48
+              hours. It may be suspended or unable to schedule.
         - alert: RenovateJobFailed
           expr: kube_job_status_failed{namespace="renovate"} > 0
           for: 30m
