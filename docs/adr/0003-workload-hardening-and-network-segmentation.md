@@ -103,10 +103,11 @@ Facts that shape the response:
 5. Adding `kubeconform` to the toolchain must respect the repo's 14-day
    release-age floor; a pinned container or SHA-pinned action is preferred over
    an unpinned install.
-6. Two staging behaviours are assumed, not verified from this repo: that
+6. Three staging behaviours are assumed, not verified from this repo: that
    k3s's kube-router evaluates egress **post-DNAT** (so the DNS-by-identity
-   rules hold), and that `cloudflared` tolerates `readOnlyRootFilesystem`. Run
-   both checks in staging before relying on them.
+   rules hold), that it honours `ipBlock.except` (if it ignores it, the egress
+   rules silently widen to `0.0.0.0/0`), and that `cloudflared` tolerates
+   `readOnlyRootFilesystem`. Run the checks in staging before relying on them.
 
 ## Rejected
 
