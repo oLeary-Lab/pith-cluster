@@ -14,15 +14,15 @@ jobs:
   manifests:
     runs-on: ubuntu-latest
     env:
-      # kubectl and the schema version track the cluster's server version, not
-      # the newest release, so they move with a cluster upgrade rather than on
-      # a Renovate PR. kubeconform is standalone and Renovate-managed (see the
-      # annotation below), held to the repo's 14-day release-age floor.
-      KUBECTL_VERSION: v1.35.4
+      # kubectl tracks the cluster's minor at its newest patch, which carries
+      # the Go 1.26.10 rebuild for GO-2026-6809. It is not Renovate-managed.
+      # kubeconform is standalone and Renovate-managed (annotation below).
+      KUBECTL_VERSION: v1.35.10
       # renovate: datasource=github-releases depName=yannh/kubeconform
       KUBECONFORM_VERSION: v0.8.0
-      # Matching the cluster's minor keeps validation from drifting with
-      # kubeconform's default (master).
+      # The schema version tracks the cluster's API, so validation matches what
+      # the API server will accept. It is deliberately not tied to kubectl's
+      # version.
       KUBERNETES_VERSION: "1.35.0"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
