@@ -44,19 +44,29 @@ jobs:
           tar -xzf /tmp/kubeconform-linux-amd64.tar.gz -C /tmp kubeconform
           install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
       # Every path a Flux Kustomization reconciles, so a broken PR fails here
-      # rather than at reconciliation. `apps/staging` has no kustomization.yaml
-      # (kustomize-controller generates one), so the overlay beneath it is built.
+      # rather than at reconciliation. The list is derived from the Flux
+      # Kustomizations rather than hardcoded, so a new overlay cannot silently
+      # escape CI. A path without its own kustomization.yaml (e.g. apps/staging)
+      # is expanded to the overlays directly beneath it, mirroring what
+      # kustomize-controller generates.
       - name: Render and validate manifests
         run: |
           set -euo pipefail
-          roots=(
-            clusters/staging/flux-system
-            apps/staging/linkding
-            infra/staging/controllers
-            infra/staging/configs
-            monitoring/staging/controllers
-            monitoring/staging/configs
-          )
+          roots=(clusters/staging/flux-system)
+          mapfile -t paths < <(grep -hE '^[[:space:]]*path:' clusters/staging/*.yaml | awk '{print $2}')
+          for p in "${paths[@]}"; do
+            dir="${p#./}"
+            if [ -f "${dir}/kustomization.yaml" ] || [ -f "${dir}/kustomization.yml" ]; then
+              roots+=("${dir}")
+            else
+              for child in "${dir}"/*/; do
+                if [ -f "${child}kustomization.yaml" ] || [ -f "${child}kustomization.yml" ]; then
+                  roots+=("${child%/}")
+                fi
+              done
+            fi
+          done
+          printf 'roots: %s\n' "${roots[*]}"
           for root in "${roots[@]}"; do
             out="/tmp/$(echo "${root}" | tr '/' '_').yaml"
             echo "::group::${root}"
@@ -69,3 +79,10 @@ jobs:
             kubeconform -strict -summary -ignore-missing-schemas -skip Secret -kubernetes-version "${KUBERNETES_VERSION}" "${out}"
             echo "::endgroup::"
           done
+      - name: Validate renovate.json
+        run: |
+          set -euo pipefail
+          # Renovate validates config at startup, but only when the daily job
+          # runs; this catches a broken config at PR time. Pinned to the version
+          # the cluster runs.
+          npx --yes --package=renovate@44.181.4 renovate-config-validator --strict
