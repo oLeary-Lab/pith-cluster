@@ -47,8 +47,8 @@ Facts that shape the response:
    violations; `enforce` is the runtime contract and CI surfaces violations
    before they land. Pinning `enforce-version` keeps a Kubernetes upgrade from
    silently changing what is rejected.
-3. Network segmentation is targeted, not a full mesh. Two policies apply, in
-   the base tier next to their workloads:
+3. Network segmentation is targeted, not a full mesh. Three policies apply,
+   in the base tier next to their workloads:
    - `cloudflare` gets a default-deny **egress** policy allowing only DNS,
      the Traefik namespace (the tunnel forwards published hostnames through
      it), and the Cloudflare edge on UDP/7844 and TCP/443. Ingress is left
@@ -57,10 +57,15 @@ Facts that shape the response:
      kubelet probe traffic under k3s's network-policy controller for no gain.
    - `linkding` gets a default-deny **ingress** policy allowing only the
      Traefik namespace on TCP/9090, and an **egress** policy allowing DNS and
-     external TCP/80 and 443 while excluding the pod and service CIDRs
-     (`10.42.0.0/16`, `10.43.0.0/16`). The exclusion bounds its server-side
-     fetch (SSRF) surface to the public internet; it cannot reach other pods,
-     ClusterIPs, or the API server.
+     external TCP/80 and 443 while excluding the pod, service, link-local, and
+     loopback CIDRs. The exclusions bound its server-side fetch (SSRF) surface
+     to the public internet; it cannot reach other pods, ClusterIPs, the API
+     server, or the cloud metadata endpoint.
+   - `renovate` gets a default-deny **egress** policy allowing DNS and external
+     TCP/443 with the same exclusions. Renovate holds the App private key
+     (ADR-0004), so the policy bounds its east-west reach and non-443 egress.
+     It is deliberately not an exfiltration firewall: `0.0.0.0/0` on 443 stays
+     because Renovate's datasources are many and FQDN matching is unavailable.
    Cross-namespace rules select the `traefik` namespace by its
    `kubernetes.io/metadata.name` label rather than a chart pod label, so they
    do not depend on chart-specific labels. Egress rules are coarse: vanilla
@@ -81,9 +86,11 @@ Facts that shape the response:
 
 ## Consequences
 
-1. Findings 1, 2 and 3 are addressed, and finding 4 gains its validation gate.
-   ADR-0001 Deferred #4 (cloudflared unhardened) closes; Deferred #2 and #3 are
-   partly addressed.
+1. Finding 1 is addressed for the workloads that carry a credential or face the
+   internet (`cloudflared`, `linkding`, `renovate`); `traefik` and `monitoring`
+   remain unsegmented (Deferred #4). Findings 2 and 3 are addressed, and finding
+   4 gains its validation gate. ADR-0001 Deferred #4 (cloudflared unhardened)
+   closes; Deferred #2 and #3 are partly addressed.
 2. Once `enforce: restricted` lands, a violating manifest is rejected at
    admission, so the workloads' hygiene becomes a contract rather than a
    convention.
@@ -95,6 +102,10 @@ Facts that shape the response:
 5. Adding `kubeconform` to the toolchain must respect the repo's 14-day
    release-age floor; a pinned container or SHA-pinned action is preferred over
    an unpinned install.
+6. Two staging behaviours are assumed, not verified from this repo: that
+   k3s's kube-router evaluates egress **post-DNAT** (so the DNS-by-identity
+   rules hold), and that `cloudflared` tolerates `readOnlyRootFilesystem`. Run
+   both checks in staging before relying on them.
 
 ## Rejected
 
@@ -119,4 +130,5 @@ Facts that shape the response:
    multi-tenant scale.
 3. A log pipeline for the Traefik access logs and, if wanted, PSA audit
    (ADR-0001 Deferred #3).
-4. Full-mesh segmentation for the namespaces that carry no root credential.
+4. Segmentation for the third-party chart namespaces (`traefik`,
+   `monitoring`), which run components that legitimately need host access.

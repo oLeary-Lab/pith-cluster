@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: renovate
+spec:
+  podSelector:
+    matchLabels:
+      app: renovate
+  policyTypes:
+    - Egress
+  egress:
+    # DNS through CoreDNS.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Renovate's datasources (GitHub, Docker Hub, api.osv.dev, npm) are all
+    # HTTPS. The cluster, link-local, and loopback ranges are excluded so the
+    # job cannot reach other pods, ClusterIPs, the API server, or the cloud
+    # metadata endpoint. This bounds east-west reach and non-443 egress; it does
+    # not stop exfiltration over 443 (no FQDN matcher -- see ADR-0003).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16
+              - 10.43.0.0/16
+              - 169.254.0.0/16
+              - 127.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 443

@@ -16,6 +16,10 @@ spec:
       activeDeadlineSeconds: 3600
       ttlSecondsAfterFinished: 86400
       template:
+        metadata:
+          # The egress NetworkPolicy selects this label.
+          labels:
+            app: renovate
         spec:
           automountServiceAccountToken: false
           restartPolicy: Never
