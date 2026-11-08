@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: linkding
+spec:
+  podSelector:
+    matchLabels:
+      app: linkding
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only Traefik, the sole in-cluster path to the app.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    # DNS through CoreDNS. The kube-dns ClusterIP lives in the service CIDR
+    # excluded below, so DNS is allowed here by pod identity, not by IP.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Server-side snapshot fetches: public HTTP(S) only. The pod and service
+    # CIDRs are excluded so the app cannot reach other pods, ClusterIPs, or the
+    # API server, bounding its SSRF surface to the internet.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16
+              - 10.43.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

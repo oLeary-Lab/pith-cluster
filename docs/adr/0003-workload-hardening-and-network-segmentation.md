@@ -35,19 +35,37 @@ Facts that shape the response:
    for data paths where it does not), `automountServiceAccountToken: false` on
    pods that never call the API, and resource requests/limits. Applied now to
    `cloudflared` and `linkding`; the Renovate pod is already compliant.
-2. App namespaces carry PSA labels: `warn` and `audit` at `latest` first, then
-   `enforce: restricted` with `enforce-version` pinned to the running cluster's
-   minor. PSA emits no metrics and no Kubernetes Events, so Prometheus cannot
-   surface violations; `enforce` is the runtime contract and CI surfaces
-   violations before they land. Pinning `enforce-version` keeps a Kubernetes
-   upgrade from silently changing what is rejected.
-3. Network segmentation is targeted, not a full mesh. Default-deny applies where
-   a root credential lives — `cloudflare` (ingress from Traefik only; egress to
-   DNS and the Cloudflare edge on UDP/7844 and TCP/443) — and to `linkding`'s
-   ingress (from Traefik). Egress rules are documented as coarse: vanilla
+2. Pod Security Admission is applied per namespace, scoped to what the repo
+   controls. The namespaces whose workloads this repo owns and has hardened
+   (`linkding`, `cloudflare`, `renovate`) carry `warn` and `audit` at `latest`
+   plus `enforce: restricted` with `enforce-version` pinned to the cluster minor
+   (`v1.35`). Namespaces running third-party Helm charts (`traefik`,
+   `monitoring`) carry `warn` and `audit` only, because those charts include
+   components that legitimately need host access — `node-exporter` runs with
+   `hostNetwork`/`hostPID` — and enforcing `restricted` would reject them. PSA
+   emits no metrics and no Kubernetes Events, so Prometheus cannot surface
+   violations; `enforce` is the runtime contract and CI surfaces violations
+   before they land. Pinning `enforce-version` keeps a Kubernetes upgrade from
+   silently changing what is rejected.
+3. Network segmentation is targeted, not a full mesh. Two policies apply, in
+   the base tier next to their workloads:
+   - `cloudflare` gets a default-deny **egress** policy allowing only DNS,
+     the Traefik namespace (the tunnel forwards published hostnames through
+     it), and the Cloudflare edge on UDP/7844 and TCP/443. Ingress is left
+     unrestricted: cloudflared serves only its health and metrics ports and
+     never receives application traffic, and default-denying ingress would risk
+     kubelet probe traffic under k3s's network-policy controller for no gain.
+   - `linkding` gets a default-deny **ingress** policy allowing only the
+     Traefik namespace on TCP/9090, and an **egress** policy allowing DNS and
+     external TCP/80 and 443 while excluding the pod and service CIDRs
+     (`10.42.0.0/16`, `10.43.0.0/16`). The exclusion bounds its server-side
+     fetch (SSRF) surface to the public internet; it cannot reach other pods,
+     ClusterIPs, or the API server.
+   Cross-namespace rules select the `traefik` namespace by its
+   `kubernetes.io/metadata.name` label rather than a chart pod label, so they
+   do not depend on chart-specific labels. Egress rules are coarse: vanilla
    `NetworkPolicy` matches IP/port/namespace/pod, not DNS names, and there is no
-   Cilium, so "allow `github.com`" is not expressible and a full mesh would be
-   mostly unenforceable intent.
+   Cilium, so "allow `github.com`" is not expressible.
 4. PRs are gated by CI: `kubectl kustomize` over the three roots, `kubeconform`
    schema validation, and `kubectl apply --dry-run=server` to surface PSA `warn`
    output. Actions are pinned by full commit SHA.
