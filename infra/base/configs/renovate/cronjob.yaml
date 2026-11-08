@@ -99,6 +99,9 @@ spec:
                 sizeLimit: 256Mi
             - name: app-token
               emptyDir:
+                # Memory-backed: the volume exists only to hold the minted token
+                # fleetingly, so it must not touch node-local disk.
+                medium: Memory
                 sizeLimit: 8Mi
             - name: script
               configMap:
