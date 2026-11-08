@@ -31,9 +31,15 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: traefik
     # The Cloudflare edge. QUIC is UDP/7844; TCP/443 is the HTTP/2 fallback.
+    # The cluster CIDRs are excluded so the edge connector cannot reach other
+    # pods or ClusterIPs on 443; Traefik is reached by the namespace rule above,
+    # not this one.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16
+              - 10.43.0.0/16
       ports:
         - protocol: TCP
           port: 443

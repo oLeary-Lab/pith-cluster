@@ -33,15 +33,18 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # Server-side snapshot fetches: public HTTP(S) only. The pod and service
-    # CIDRs are excluded so the app cannot reach other pods, ClusterIPs, or the
-    # API server, bounding its SSRF surface to the internet.
+    # Server-side snapshot fetches: public HTTP(S) only. The pod, service,
+    # link-local, and loopback CIDRs are excluded so a fetched URL cannot reach
+    # other pods, ClusterIPs, the API server, or the cloud metadata endpoint
+    # (169.254.169.254), bounding the SSRF surface to the public internet.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
             except:
               - 10.42.0.0/16
               - 10.43.0.0/16
+              - 169.254.0.0/16
+              - 127.0.0.0/8
       ports:
         - protocol: TCP
           port: 80
