@@ -16,9 +16,10 @@ jobs:
     env:
       # kubectl and the schema version track the cluster's server version, not
       # the newest release, so they move with a cluster upgrade rather than on
-      # a Renovate PR. kubeconform is a standalone tool, pinned under the
-      # repo's 14-day release-age floor.
+      # a Renovate PR. kubeconform is standalone and Renovate-managed (see the
+      # annotation below), held to the repo's 14-day release-age floor.
       KUBECTL_VERSION: v1.35.4
+      # renovate: datasource=github-releases depName=yannh/kubeconform
       KUBECONFORM_VERSION: v0.8.0
       # Matching the cluster's minor keeps validation from drifting with
       # kubeconform's default (master).
