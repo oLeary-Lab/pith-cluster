@@ -2,3 +2,11 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: traefik
+  # Third-party Helm chart; warn/audit only until its pods are verified
+  # against `restricted`. Enforcing here would reject chart components that
+  # legitimately need more than the profile allows.
+  labels:
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
