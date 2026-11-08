@@ -44,29 +44,55 @@ jobs:
           (cd /tmp && grep 'kubeconform-linux-amd64.tar.gz' CHECKSUMS | sha256sum -c -)
           tar -xzf /tmp/kubeconform-linux-amd64.tar.gz -C /tmp kubeconform
           install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
-      # The derived overlay paths beneath every Flux Kustomization's spec.path,
-      # so a new overlay cannot silently escape CI. A path without its own
-      # kustomization.yaml (e.g. apps/staging) is expanded to the overlays
-      # directly beneath it, mirroring kustomize-controller. The flux-system
-      # root itself (./clusters/staging) has no kustomization.yaml; its loose
-      # manifests are validated in the step below.
+      # The reconciliation roots are listed explicitly so coverage is visible in
+      # review, then asserted against the Flux Kustomizations: every declared
+      # spec.path must resolve to at least one root (a typo otherwise removes a
+      # tier from the gate silently), and every resolved root must be listed (a
+      # new overlay otherwise escapes validation). The flux-system root itself
+      # (clusters/staging) has no kustomization.yaml; its loose manifests are
+      # validated in the step below.
       - name: Render and validate manifests
         run: |
           set -euo pipefail
-          roots=(clusters/staging/flux-system)
+          roots=(
+            clusters/staging/flux-system
+            apps/staging/linkding
+            infra/staging/controllers
+            infra/staging/configs
+            monitoring/staging/controllers
+            monitoring/staging/configs
+          )
+
+          resolved=()
           mapfile -t paths < <(grep -hE '^[[:space:]]*path:' clusters/staging/*.yaml | awk '{print $2}')
           for p in "${paths[@]}"; do
             dir="${p#./}"
+            found=()
             if [ -f "${dir}/kustomization.yaml" ] || [ -f "${dir}/kustomization.yml" ]; then
-              roots+=("${dir}")
+              found=("${dir}")
             else
               for child in "${dir}"/*/; do
                 if [ -f "${child}kustomization.yaml" ] || [ -f "${child}kustomization.yml" ]; then
-                  roots+=("${child%/}")
+                  found+=("${child%/}")
                 fi
               done
             fi
+            if [ "${#found[@]}" -eq 0 ]; then
+              echo "::error::Flux path '${p}' resolves to no root -- check spec.path"
+              exit 1
+            fi
+            resolved+=("${found[@]}")
           done
+
+          drift=()
+          for d in "${resolved[@]}"; do
+            printf '%s\n' "${roots[@]}" | grep -qxF "${d}" || drift+=("${d}")
+          done
+          if [ "${#drift[@]}" -gt 0 ]; then
+            echo "::error::roots list is missing Flux-declared root(s): ${drift[*]}"
+            exit 1
+          fi
+
           printf 'roots: %s\n' "${roots[*]}"
           for root in "${roots[@]}"; do
             out="/tmp/$(echo "${root}" | tr '/' '_').yaml"

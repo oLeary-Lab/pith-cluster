@@ -71,14 +71,21 @@ Facts that shape the response:
    do not depend on chart-specific labels. Egress rules are coarse: vanilla
    `NetworkPolicy` matches IP/port/namespace/pod, not DNS names, and there is no
    Cilium, so "allow `github.com`" is not expressible.
-4. PRs are gated by CI: `kubectl kustomize` renders every path a Flux
-   Kustomization reconciles, and `kubeconform` validates the rendered objects
-   against published schemas (`-ignore-missing-schemas`, since the CRDs have no
-   public schema). `kubectl apply --dry-run=server` is not used: it needs a live
-   API server, which a hosted runner does not have, so PSA violations surface at
-   admission (Consequence 2), not at PR time. The one action used is pinned by
-   full commit SHA, and both pinned binaries are verified against their
-   published checksums before use.
+4. PRs are gated by CI in two steps. `kubectl kustomize` renders the
+   reconciliation roots -- the overlays beneath each Flux Kustomization's
+   `spec.path` -- and `kubeconform` validates the rendered objects against
+   published schemas. The roots are listed explicitly, and the job fails if they
+   drift from the Flux `spec.path` values or if a declared path resolves to
+   nothing, so neither a new overlay nor a typo can leave a tier unvalidated.
+   The loose manifests at `clusters/staging` -- the `flux-system`
+   Kustomization's own root, for which kustomize-controller generates a
+   kustomization -- are validated directly rather than by emulating that
+   generator, against the datree CRD catalog so the Flux Kustomizations are
+   schema-checked rather than skipped. `kubectl apply --dry-run=server` is not
+   used: it needs a live API server, which a hosted runner does not have, so PSA
+   violations surface at admission (Consequence 2), not at PR time. The one
+   action used is pinned by full commit SHA, and both pinned binaries are
+   verified against their published checksums before use.
 5. No admission controller (Kyverno/Gatekeeper) is added now. `pinDigests` +
    PR review + PSA `restricted` + the CI gate cover the gaps the review found;
    an admission webhook is itself a privileged, token-bearing component sitting
