@@ -10,7 +10,10 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Only Traefik, the sole in-cluster path to the app.
+    # Only Traefik, the sole in-cluster path to the app. Note that kubelet
+    # probe traffic originates from the node rather than a pod, so it does not
+    # match this selector: if probes are added to the Deployment they must be
+    # allowlisted here or they will be blocked under an enforcing CNI.
     - from:
         - namespaceSelector:
             matchLabels:
