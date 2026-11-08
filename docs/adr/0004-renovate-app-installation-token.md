@@ -71,6 +71,9 @@ transfers, even though the GitHub App itself does not.
    `renovate-dotenv` deletes the ciphertext from `main`, but the token stays
    live (and in history) until it is revoked or expires, so a working
    repo-write credential would remain in scope until then.
+7. The Job must finish inside the token's ~1 h lifetime. `activeDeadlineSeconds`
+   is 3000 s, leaving margin under it; the init container's mint runs inside
+   that window.
 
 ## Rejected
 

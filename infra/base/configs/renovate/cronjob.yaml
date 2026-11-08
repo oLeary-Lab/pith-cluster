@@ -13,7 +13,9 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 1
-      activeDeadlineSeconds: 3600
+      # Bounded below the ~1h installation-token lifetime (the init container's
+      # mint is inside this window) so a slow run cannot expire mid-flight.
+      activeDeadlineSeconds: 3000
       ttlSecondsAfterFinished: 86400
       template:
         metadata:
