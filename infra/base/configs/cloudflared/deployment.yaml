@@ -12,6 +12,13 @@ spec:
       labels:
         app: cloudflared
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:2026.10.3@sha256:faa8e0a1475f137c910be6025f43c8e4092fdd35461b31e19fd1390657a1ff39 # 2026.10.3
@@ -39,6 +46,18 @@ spec:
             failureThreshold: 3
             initialDelaySeconds: 10
             periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
             - name: config
               mountPath: /etc/cloudflared/config

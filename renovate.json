@@ -14,6 +14,17 @@
     "enabled": false
   },
   "ignorePaths": ["**/gotk-components.yaml"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "kubeconform pinned in the validate workflow",
+      "managerFilePatterns": ["/\\.github/workflows/.*\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\n\\s+KUBECONFORM_VERSION: v(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "versioningTemplate": "semver"
+    }
+  ],
   "packageRules": [
     {
       "matchUpdateTypes": ["pinDigest"],

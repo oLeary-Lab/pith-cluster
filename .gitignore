@@ -3,3 +3,6 @@
 setup-mise.sh
 install-skills.sh
 install-pi-packages.sh
+
+# Local review artifacts (throwaway notes; not part of the deployed state)
+tmp/

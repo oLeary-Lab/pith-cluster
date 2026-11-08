@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflared
+spec:
+  podSelector:
+    matchLabels:
+      app: cloudflared
+  policyTypes:
+    - Egress
+  egress:
+    # DNS through CoreDNS.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Traefik, which forwards the tunnel's published hostnames. The port is
+    # omitted on purpose: the Traefik Service maps port 80 to the pod's `web`
+    # entrypoint, and NetworkPolicy matches the post-DNAT pod port, so naming a
+    # port here would be a guess that breaks the tunnel if wrong.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+    # The Cloudflare edge. QUIC is UDP/7844; TCP/443 is the HTTP/2 fallback.
+    # The cluster, link-local, and loopback CIDRs are excluded: the connector
+    # cannot reach other pods or ClusterIPs (Traefik is reached by the namespace
+    # rule above, not this one) nor the cloud metadata endpoint, which would
+    # hand out instance credentials. Consistent with the other two policies.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16
+              - 10.43.0.0/16
+              - 169.254.0.0/16
+              - 127.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: UDP
+          port: 7844

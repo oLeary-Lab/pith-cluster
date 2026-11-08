@@ -12,6 +12,7 @@ spec:
       labels:
         app: linkding
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: linkding
           image: sissbruecker/linkding:1.47.0-plus-alpine@sha256:c1de5d357a4826089fc3fb597e9f5e3595e65b434746dc5176336078f8c2cdc8
@@ -23,8 +24,18 @@ spec:
             - name: linkding-data
               mountPath: /etc/linkding/data
 
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
 
           envFrom:
             - secretRef:
@@ -34,6 +45,9 @@ spec:
           persistentVolumeClaim:
             claimName: linkding-data-pvc
       securityContext:
+        runAsNonRoot: true
         runAsUser: 82
         runAsGroup: 82
         fsGroup: 82
+        seccompProfile:
+          type: RuntimeDefault

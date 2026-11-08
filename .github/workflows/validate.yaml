@@ -1,0 +1,128 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# The workflow only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  manifests:
+    runs-on: ubuntu-latest
+    env:
+      # kubectl tracks the cluster's minor at its newest patch; 1.35.10 is
+      # built with Go 1.26.10 (verifiable with `go version -m`), which carries
+      # the Go-stdlib CA-denylist rebuild. It is not Renovate-managed.
+      # kubeconform is standalone and Renovate-managed (annotation below).
+      KUBECTL_VERSION: v1.35.10
+      # renovate: datasource=github-releases depName=yannh/kubeconform
+      KUBECONFORM_VERSION: v0.8.0
+      # The schema version tracks the cluster's API, so validation matches what
+      # the API server will accept. It is deliberately not tied to kubectl's
+      # version.
+      KUBERNETES_VERSION: "1.35.0"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install kubectl
+        run: |
+          set -euo pipefail
+          base="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64"
+          curl -fsSLo /tmp/kubectl "${base}/kubectl"
+          curl -fsSLo /tmp/kubectl.sha256 "${base}/kubectl.sha256"
+          echo "$(cat /tmp/kubectl.sha256)  /tmp/kubectl" | sha256sum -c -
+          install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          base="https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}"
+          curl -fsSLo /tmp/kubeconform-linux-amd64.tar.gz "${base}/kubeconform-linux-amd64.tar.gz"
+          curl -fsSLo /tmp/CHECKSUMS "${base}/CHECKSUMS"
+          (cd /tmp && grep 'kubeconform-linux-amd64.tar.gz' CHECKSUMS | sha256sum -c -)
+          tar -xzf /tmp/kubeconform-linux-amd64.tar.gz -C /tmp kubeconform
+          install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+      # The reconciliation roots are listed explicitly so coverage is visible in
+      # review, then asserted against the Flux Kustomizations: every declared
+      # spec.path must resolve to at least one root (a typo otherwise removes a
+      # tier from the gate silently), and every resolved root must be listed (a
+      # new overlay otherwise escapes validation). The flux-system root itself
+      # (clusters/staging) has no kustomization.yaml; its loose manifests are
+      # validated in the step below.
+      - name: Render and validate manifests
+        run: |
+          set -euo pipefail
+          roots=(
+            clusters/staging/flux-system
+            apps/staging/linkding
+            infra/staging/controllers
+            infra/staging/configs
+            monitoring/staging/controllers
+            monitoring/staging/configs
+          )
+
+          resolved=()
+          mapfile -t paths < <(grep -hE '^[[:space:]]*path:' clusters/staging/*.yaml | awk '{print $2}')
+          for p in "${paths[@]}"; do
+            dir="${p#./}"
+            found=()
+            if [ -f "${dir}/kustomization.yaml" ] || [ -f "${dir}/kustomization.yml" ]; then
+              found=("${dir}")
+            else
+              for child in "${dir}"/*/; do
+                if [ -f "${child}kustomization.yaml" ] || [ -f "${child}kustomization.yml" ]; then
+                  found+=("${child%/}")
+                fi
+              done
+            fi
+            if [ "${#found[@]}" -eq 0 ]; then
+              echo "::error::Flux path '${p}' resolves to no root -- check spec.path"
+              exit 1
+            fi
+            resolved+=("${found[@]}")
+          done
+
+          drift=()
+          for d in "${resolved[@]}"; do
+            printf '%s\n' "${roots[@]}" | grep -qxF "${d}" || drift+=("${d}")
+          done
+          if [ "${#drift[@]}" -gt 0 ]; then
+            echo "::error::roots list is missing Flux-declared root(s): ${drift[*]}"
+            exit 1
+          fi
+
+          printf 'roots: %s\n' "${roots[*]}"
+          for root in "${roots[@]}"; do
+            out="/tmp/$(echo "${root}" | tr '/' '_').yaml"
+            echo "::group::${root}"
+            kubectl kustomize "${root}" > "${out}"
+            # CRDs (HelmRelease, Kustomization, PrometheusRule, …) have no
+            # published schema, so unknown kinds are skipped. SOPS-encrypted
+            # Secrets carry a top-level `sops` block that Flux strips on
+            # decryption; kustomize in CI cannot decrypt, so strict validation
+            # would reject them — skip the kind.
+            kubeconform -strict -summary -ignore-missing-schemas -skip Secret -kubernetes-version "${KUBERNETES_VERSION}" "${out}"
+            echo "::endgroup::"
+          done
+      # ./clusters/staging is the path the flux-system Kustomization reconciles
+      # (clusters/staging/flux-system/gotk-sync.yaml), and kustomize-controller
+      # generates its kustomization. Rather than emulate that generator here,
+      # validate the loose manifests directly. The CRD catalog is required: Flux
+      # CRs have no built-in schema, so without it they are skipped, not checked.
+      - name: Validate the flux-system root manifests
+        run: |
+          set -euo pipefail
+          kubeconform -strict -summary -ignore-missing-schemas -skip Secret \
+            -kubernetes-version "${KUBERNETES_VERSION}" \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            clusters/staging/*.yaml
+      - name: Validate renovate.json
+        run: |
+          set -euo pipefail
+          # Renovate validates config at startup, but only when the daily job
+          # runs; this catches a broken config at PR time. Pinned to the version
+          # the cluster runs.
+          npx --yes --package=renovate@44.181.4 renovate-config-validator --strict

@@ -50,7 +50,11 @@ cannot carry a TLS Secret.
    recorded so "private apps get Access" is not mistaken for an authorization
    boundary.
 6. Grafana is published on the tunnel allowlist only behind a Cloudflare Access
-   policy; the Ingress without that policy would expose it directly.
+   policy; the Ingress without that policy would expose it directly. The policy
+   lives in Cloudflare and cannot be seen from this repo, so publishing a
+   private hostname requires confirming the Access policy exists as a manual
+   step before the hostname is added to the tunnel; the Ingress and the tunnel
+   allowlist entry are the in-repo halves of that gate.
 7. Cutover: for a short window the new connector forwards to Traefik before the
    linkding Ingress reconciles, so `linkding.olearylab.com` can return
    intermittent 404s.

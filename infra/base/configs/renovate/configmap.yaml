@@ -3,6 +3,11 @@ kind: ConfigMap
 metadata:
   name: renovate-configmap
 data:
+  # Non-secret: the App ID and installation ID tell the init container which
+  # installation to request a token for. The private key is the Secret
+  # renovate-app-key.
+  GITHUB_APP_ID: "5667172"
+  GITHUB_APP_INSTALLATION_ID: "179837570"
   RENOVATE_AUTODISCOVER: "false"
   RENOVATE_GIT_AUTHOR: "Renovate Bot <renovate@olearylab.com>"
   RENOVATE_PLATFORM: "github"

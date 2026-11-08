@@ -4,7 +4,7 @@ locked = true
 
 [tools]
 helm = "4"
-kubectl = "1.37"
+kubectl = "1.35.10"
 flux2 = "2"
 sops = "3"
 # Not in the mise registry; the GitHub backend verifies the release checksum
