@@ -14,8 +14,9 @@ jobs:
   manifests:
     runs-on: ubuntu-latest
     env:
-      # kubectl tracks the cluster's minor at its newest patch, which carries
-      # the Go 1.26.10 rebuild for GO-2026-6809. It is not Renovate-managed.
+      # kubectl tracks the cluster's minor at its newest patch; 1.35.10 is
+      # built with Go 1.26.10 (verifiable with `go version -m`), which carries
+      # the Go-stdlib CA-denylist rebuild. It is not Renovate-managed.
       # kubeconform is standalone and Renovate-managed (annotation below).
       KUBECTL_VERSION: v1.35.10
       # renovate: datasource=github-releases depName=yannh/kubeconform
@@ -43,12 +44,12 @@ jobs:
           (cd /tmp && grep 'kubeconform-linux-amd64.tar.gz' CHECKSUMS | sha256sum -c -)
           tar -xzf /tmp/kubeconform-linux-amd64.tar.gz -C /tmp kubeconform
           install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
-      # Every path a Flux Kustomization reconciles, so a broken PR fails here
-      # rather than at reconciliation. The list is derived from the Flux
-      # Kustomizations rather than hardcoded, so a new overlay cannot silently
-      # escape CI. A path without its own kustomization.yaml (e.g. apps/staging)
-      # is expanded to the overlays directly beneath it, mirroring what
-      # kustomize-controller generates.
+      # The derived overlay paths beneath every Flux Kustomization's spec.path,
+      # so a new overlay cannot silently escape CI. A path without its own
+      # kustomization.yaml (e.g. apps/staging) is expanded to the overlays
+      # directly beneath it, mirroring kustomize-controller. The flux-system
+      # root itself (./clusters/staging) has no kustomization.yaml; its loose
+      # manifests are validated in the step below.
       - name: Render and validate manifests
         run: |
           set -euo pipefail
@@ -79,6 +80,19 @@ jobs:
             kubeconform -strict -summary -ignore-missing-schemas -skip Secret -kubernetes-version "${KUBERNETES_VERSION}" "${out}"
             echo "::endgroup::"
           done
+      # ./clusters/staging is the path the flux-system Kustomization reconciles
+      # (clusters/staging/flux-system/gotk-sync.yaml), and kustomize-controller
+      # generates its kustomization. Rather than emulate that generator here,
+      # validate the loose manifests directly. The CRD catalog is required: Flux
+      # CRs have no built-in schema, so without it they are skipped, not checked.
+      - name: Validate the flux-system root manifests
+        run: |
+          set -euo pipefail
+          kubeconform -strict -summary -ignore-missing-schemas -skip Secret \
+            -kubernetes-version "${KUBERNETES_VERSION}" \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            clusters/staging/*.yaml
       - name: Validate renovate.json
         run: |
           set -euo pipefail
